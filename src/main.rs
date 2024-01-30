@@ -27,25 +27,33 @@ fn main() {
     let mut reader = hound::WavReader::open(&args[1]).unwrap();
     let spec = reader.spec();
     let num_channels = spec.channels;
-    print!("Number of channels: {}",num_channels);
     // Read audio data and write it to the output text file (one column per channel)
     // TODO: your code here; we suggest using `hound::WavReader::samples`, `File::create`, and `write!`.
     //       Remember to convert the samples to floating point values and respect the number of channels!
     let output = File::create(&args[2]).expect("Couldn't open the file");
     let mut file_writer = BufWriter::new(output);
-    writeln!(file_writer, "Channel 1, Channel 2").expect("Failed to write Channel names");
+
+    // ============== UNCOMMENT FOR CHANNEL LABELS =================================
+    // write!(file_writer,"Channel 1 ").expect("Failed to write channel names");
+    
+    // if num_channels > 1
+    // {
+    //     for channel in 2..=num_channels
+    //     {
+    //         write!(file_writer,"Channel {} ",channel).expect("Failed to write channel names");
+    //     }
+    // }
+    // writeln!(file_writer).expect("Couldn't print a line lol");
+    // ===============================================================================
+
     for (index,sample) in reader.samples::<i16>().enumerate()
     {
         let normalized = normalize_sample(&sample.unwrap());
-        if index % 2 == 0
+        write!(file_writer, "{} ",normalized).expect("Failed to write sample");
+        if (index + 1) % num_channels as usize == 0
         {
-            write!(file_writer, "{}, ",normalized).expect("Failed to write sample");
-        }
-        else 
-        {
-            write!(file_writer,"{}", normalized).expect("Failed to write sample");
-            writeln!(file_writer).expect("Failed to write sample");
-        }   
+            writeln!(file_writer).expect("Didn't write a new line");
+        }  
     }
 }
 
