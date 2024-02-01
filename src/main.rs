@@ -1,5 +1,7 @@
 use std::{fs::File, io::Write};
 
+use comb_filter::CombFilter;
+
 mod comb_filter;
 
 fn show_info() {
@@ -21,6 +23,13 @@ fn main() {
     let mut reader = hound::WavReader::open(&args[1]).unwrap();
     let spec = reader.spec();
     let channels = spec.channels;
+    let sr = spec.sample_rate;
+    
+    let fir_comb = CombFilter::new(comb_filter::FilterType::FIR,1.0,
+                                        sr as f32, channels as usize);
+   
+    let iir_comb = CombFilter::new(comb_filter::FilterType::IIR,1.0,
+                                        sr as f32, channels as usize);
 
     // TODO: Modify this to process audio in blocks using your comb filter and write the result to an audio file.
     //       Use the following block size:
