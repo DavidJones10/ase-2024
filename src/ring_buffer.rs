@@ -153,7 +153,7 @@ fn test4 (buffer: &mut RingBuffer<i32>)
     for i in 0..10
     {
         buffer.push(i);
-        buffer.set_read_index(buffer.get_write_index()+5);
+        buffer.set_read_index(buffer.get_write_index() as usize +5);
         dbg!(buffer.peek());
     }   
 }
@@ -166,7 +166,7 @@ fn test5 (buffer: &mut RingBuffer<i32>)
         buffer.set_write_index(i+500);
         buffer.put(i as i32 +500);
         dbg!(buffer.get_write_index());
-        buffer.set_read_index(buffer.get_write_index());
+        buffer.set_read_index(buffer.get_write_index() as usize);
         dbg!(buffer.peek());
     }
 }
