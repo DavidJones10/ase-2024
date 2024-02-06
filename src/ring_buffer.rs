@@ -70,9 +70,8 @@ impl<T: Copy + Default> RingBuffer<T> {
         self.read_ptr = index % self.buffer.len();
     }
 
-    pub fn get_write_index(&self) -> usize {
-        //todo!()
-        self.write_ptr 
+    pub fn get_write_index(&self) -> T {
+        todo!()
     }
 
     pub fn set_write_index(&mut self, index: usize) {
