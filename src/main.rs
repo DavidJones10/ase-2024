@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write};
 
 // mod ring_buffer;
-mod ring_buffer_solution;
+mod ring_buffer;
 
 fn show_info() {
     eprintln!("MUSI-6106 Assignment Executable");
@@ -10,7 +10,7 @@ fn show_info() {
 
 fn main() {
    show_info();
-
+    ring_buffer::run_tests();
     // Parse command line arguments
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
