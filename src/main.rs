@@ -9,7 +9,6 @@ fn show_info() {
 
 fn main() {
    show_info();
-    ring_buffer::run_tests();
     // Parse command line arguments
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {

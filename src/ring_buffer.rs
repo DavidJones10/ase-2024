@@ -70,8 +70,9 @@ impl<T: Copy + Default> RingBuffer<T> {
         self.read_ptr = index % self.buffer.len();
     }
 
-    pub fn get_write_index(&self) -> T {
-        todo!()
+    pub fn get_write_index(&self) -> usize {
+        //todo!()
+        self.write_ptr
     }
 
     pub fn set_write_index(&mut self, index: usize) {
@@ -92,81 +93,96 @@ impl<T: Copy + Default> RingBuffer<T> {
     }
 }
 
-pub fn run_tests ()
-{
-    let mut buff = RingBuffer::<f32>::new(5);
-    let mut int_buff = RingBuffer::<i32>::new(10);
-
-    test1(&mut buff);
-    test2(&mut buff);
-    test3(&mut buff);
-    test4(&mut int_buff);
-    test5(&mut int_buff);
-}
-
-// Tests basic push, pop, and put functionality
-fn test1 (buffer: &mut RingBuffer<f32>)
-{
-    buffer.reset();
-    assert_eq!(buffer.capacity(), 5);
-    buffer.push(0.1);
-    assert_eq!(buffer.peek(), 0.1);
-    buffer.put(0.3);
-    buffer.set_read_index(1);
-    assert_eq!(buffer.pop(), 0.3);
-    buffer.push(0.7);
-    buffer.set_read_index(1);
-    assert_eq!(buffer.pop(),0.7);
-    println!("Test 1 Passed!");
-}
-// Tests getters and puahing and popping an incrementing value
-fn test2 (buffer: &mut RingBuffer<f32>)
-{
-    buffer.reset();
-    for i in 0..5
+#[cfg(test)]
+mod tests {
+    use super::*;   
+    #[test]
+    // Tests basic push, pop, and put functionality
+    fn test1 ()
     {
-        buffer.push(i as f32 * 0.1);
-        dbg!(buffer.get(i));
-        dbg!(buffer.pop());
-        dbg!(buffer.get_read_index());
-        dbg!(buffer.get_write_index());
+        let mut buffer = RingBuffer::<f32>::new(5);
+        buffer.reset();
+        assert_eq!(buffer.capacity(), 5);
+        buffer.push(0.1);
+        assert_eq!(buffer.peek(), 0.1);
+        buffer.put(0.3);
+        buffer.set_read_index(1);
+        assert_eq!(buffer.pop(), 0.3);
+        buffer.push(0.7);
+        buffer.set_read_index(1);
+        assert_eq!(buffer.pop(),0.7);
+        println!("Test 1 Passed!");
     }
-    dbg!(buffer.len());
-}
+    #[test]
+    // Tests getters and puahing and popping an incrementing value
+    fn test2 ()
+    {
+        let mut buffer = RingBuffer::<f32>::new(5);
+        buffer.reset();
+        for i in 0..4
+        {
+            let value = i as f32 * 0.1;
+            buffer.push(value);
+            assert_eq!(buffer.get(i), value);
+            assert_eq!(buffer.pop(), value);
+            assert_eq!(buffer.get_read_index(), i+1);
+            assert_eq!(buffer.get_write_index(), i+1);
+        }
+        assert_eq!(buffer.len(),5);
+        println!("Test 2 passed!");
+    }
+    #[test]
+    // Tests setters for values in and out of range
+    fn test3 ()
+    {
+        let mut buffer = RingBuffer::<f32>::new(5);
+        buffer.reset();
+        let has_been = false;
+        for i in 0..buffer.len()
+        {
+            buffer.set_read_index(i+3);
+            buffer.set_write_index(i+4);
+            buffer.put(0.1);
+            if i > 0{
+                assert_eq!(buffer.peek(),0.1);
+            } else {
+                assert_eq!(buffer.peek(), 0.0);
+            }
+            if i==4{
+                assert_eq!(buffer.get(i),0.1);
+            } else {
+                assert_eq!(buffer.get(i),0.0);
+            }
+        }
+        println!("Test 3 passed!");
+    }
+    #[test]
+    // Tests pushing with set + get for read and write index with int buffer
+    fn test4 ()
+    {
+        let mut buffer = RingBuffer::<i32>::new(10);
+        for i in 0..10
+        {
+            buffer.push(i);
+            assert_eq!(buffer.peek(),i);
+            buffer.set_read_index(buffer.get_write_index() as usize +5);
+        }   
+        println!("Test 4 passed!");
+    }
+    #[test]
+    // Tests manual index setting and putting and peeking with int buffer
+    fn test5 ()
+    {
+        let mut buffer = RingBuffer::<i32>::new(10);
+        buffer.reset();
+        for i in 0..10
+        {
+            buffer.set_write_index(i+500);
+            buffer.put(i as i32 +500);
+            dbg!(buffer.get_write_index());
+            buffer.set_read_index(buffer.get_write_index() as usize);
+            dbg!(buffer.peek());
+        }
+    }
 
-// Tests setters for values in and out of range
-fn test3 (buffer: &mut RingBuffer<f32>)
-{
-    buffer.reset();
-    for i in 0..buffer.len()
-    {
-        buffer.set_read_index(i+3);
-        buffer.set_write_index(i+4);
-        buffer.put(0.1);
-        dbg!(buffer.peek());
-        dbg!(buffer.get(i));
-    }
-}
-// Tests pushing with set + get for read and write index with int buffer
-fn test4 (buffer: &mut RingBuffer<i32>)
-{
-    for i in 0..10
-    {
-        buffer.push(i);
-        buffer.set_read_index(buffer.get_write_index() as usize +5);
-        dbg!(buffer.peek());
-    }   
-}
-// Tests manual index setting and putting and peeking with int buffer
-fn test5 (buffer: &mut RingBuffer<i32>)
-{
-    buffer.reset();
-    for i in 0..10
-    {
-        buffer.set_write_index(i+500);
-        buffer.put(i as i32 +500);
-        dbg!(buffer.get_write_index());
-        buffer.set_read_index(buffer.get_write_index() as usize);
-        dbg!(buffer.peek());
-    }
 }
