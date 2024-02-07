@@ -157,14 +157,21 @@ mod tests {
         println!("Test 3 passed!");
     }
     #[test]
-    // Tests pushing with set + get for read and write index with int buffer
+    // Tests pushing with set + get for read and write index with int buffer and delay
     fn test4 ()
     {
         let mut buffer = RingBuffer::<i32>::new(10);
         for i in 0..10
         {
             buffer.push(i);
-            assert_eq!(buffer.peek(),i);
+            if i ==0{
+                assert_eq!(buffer.peek(),i);
+            }else if i < 5{
+                assert_eq!(buffer.peek(),Default::default());
+            }
+            else{
+                assert_eq!(buffer.peek(), i-5);
+            }
             buffer.set_read_index(buffer.get_write_index() as usize +5);
         }   
         println!("Test 4 passed!");
@@ -179,10 +186,11 @@ mod tests {
         {
             buffer.set_write_index(i+500);
             buffer.put(i as i32 +500);
-            dbg!(buffer.get_write_index());
+            assert_eq!(buffer.get_write_index(), (i + 500) % buffer.len());
             buffer.set_read_index(buffer.get_write_index() as usize);
-            dbg!(buffer.peek());
+            assert_eq!(buffer.peek(), i as i32 +500);
         }
+        println!("Test 5 passed!");
     }
 
 }
