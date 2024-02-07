@@ -1,8 +1,6 @@
 use std::{fs::File, io::Write};
-
-use comb_filter::CombFilter;
-
 mod comb_filter;
+use comb_filter::CombFilter;
 
 fn show_info() {
     eprintln!("MUSI-6106 Assignment Executable");

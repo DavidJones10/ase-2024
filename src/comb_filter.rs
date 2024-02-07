@@ -1,14 +1,17 @@
-use core::num;
-use std::io::prelude;
+
+mod ring_buffer;
+use ring_buffer::RingBuffer;
 
 pub struct CombFilter {
     // TODO: your code here
-    buffer : Vec<f32>,
+    buffers : Vec<RingBuffer::<f32>>,
     gain : f32,
     delay : f32,
     filterType : FilterType,
     numChannels : usize,
-    last_sample : f32
+    last_sample : f32,
+    max_delay: f32,
+    sample_rate : f32
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -31,43 +34,41 @@ pub enum Error {
 impl CombFilter {
     pub fn new(filter_type: FilterType, max_delay_secs: f32, sample_rate_hz: f32, num_channels: usize) -> Self {
         //todo!("implement");
-        let delaySize = (max_delay_secs * sample_rate_hz) as usize;
+        let max_delay_ = (max_delay_secs * sample_rate_hz) as usize;
+        let buffers_ = (0..num_channels)
+            .map(|_| RingBuffer::<f32>::new(max_delay_ + 1))
+            .collect();
         CombFilter{filterType: filter_type, 
-                    buffer: vec![0.0;(max_delay_secs*sample_rate_hz)as usize],
+                    buffers: buffers_,
                     gain: 1.0,
                     delay: 0.0,
                     numChannels : num_channels,
-                    last_sample : 0.0
+                    last_sample : 0.0,
+                    max_delay : max_delay_ as f32,
+                    sample_rate : sample_rate_hz
                     }
         
     }
 
     pub fn reset(&mut self) {
         //todo!("implement")
-        self.buffer.fill(0.0);
+        let index = self.find_read_index((self.delay*self.sample_rate) as i32);
+        for buffer in self.buffers.iter_mut(){
+            buffer.reset();
+            buffer.set_read_index(index);
+        }
     }
 
     pub fn process(&mut self, input: &[&[f32]], output: &mut [&mut [f32]]) {
         //todo!("implement");
-        use FilterType::*;
+        let mut channel_counter = 0;
         for (out_slice,in_slice) in output.iter_mut().zip(input)
         {
             for (outVal, inVal) in out_slice.iter_mut().zip(in_slice.iter())
             {
-                match self.filterType
-                {
-                    FIR => {
-                        self.buffer.push(*inVal);
-                        *outVal = *inVal + (self.gain * self.buffer.get((self.delay-1.0) as usize).unwrap());
-                        self.buffer.pop();
-                    }
-                    IIR => {
-                        *outVal = *inVal + self.last_sample * self.gain;
-                        self.buffer.push(*outVal);
-                        self.last_sample = *self.buffer.get((self.delay-1.0) as usize).unwrap();
-                        self.buffer.pop();
-                    }
-                }
+                let channel = channel_counter % self.numChannels;
+                self.calculate_filter(inVal, outVal, channel);
+                channel_counter +=1;
             }
         }
     }
@@ -77,7 +78,13 @@ impl CombFilter {
         use FilterParam::*;
         match param
         {
-            Delay => self.delay = value,
+            Delay => {
+                self.delay = value;
+                let index = self.find_read_index((value*self.sample_rate) as i32);
+                for buffer in self.buffers.iter_mut(){
+                    buffer.set_read_index(index);
+                }
+            },
             Gain => self.gain = value,
             _ => println!("Invalid Parameter!")
         }
@@ -93,8 +100,43 @@ impl CombFilter {
             Gain => return self.gain
         }
     }
+    fn find_read_index(&mut self, del_in_samps: i32) -> usize
+    {
+        let mut calc_index = if self.buffers[0].get_write_index() >= del_in_samps as usize {
+            self.buffers[0].get_write_index() - (del_in_samps as usize)
+        } else {
+            self.buffers[0].get_write_index() + self.max_delay as usize - del_in_samps as usize
+        };
+    
+        if calc_index >= self.max_delay as usize {
+            calc_index -= self.max_delay as usize;
+        }
+    
+        calc_index
+    }
+    fn calculate_filter(&mut self, inVal: &f32, outVal: &mut f32, channel: usize)
+    {
+        use FilterType::*;
+        match self.filterType
+                {
+                    FIR => {
+                        self.buffers[channel].push(*inVal);
+                        *outVal = *inVal + (self.gain * self.buffers[channel].pop());
+                    }
+                    IIR => {
+                        *outVal = *inVal + self.last_sample * self.gain;
+                        self.buffers[channel].push(*outVal);
+                        self.last_sample = self.buffers[channel].pop();
+                    }
+                }
+    }
 
     // TODO: feel free to define other functions for your own use
 }
 
 // TODO: feel free to define other types (here or in other modules) for your own use
+#[cfg(test)]
+mod tests {
+    use super::*;   
+    // #[test]
+}
