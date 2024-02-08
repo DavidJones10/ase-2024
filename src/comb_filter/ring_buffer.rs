@@ -86,7 +86,6 @@ impl<T: Copy + Default> RingBuffer<T> {
 
     pub fn capacity(&self) -> usize {
         // Return the length of the internal buffer.
-        //todo!()
         self.buffer.capacity()
     }
 }
