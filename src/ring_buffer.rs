@@ -47,13 +47,13 @@ impl<T: Copy + Default> RingBuffer<T> {
     pub fn push(&mut self, value: T) {
         //todo!()
         self.put(value);
-        self.write_ptr = (self.write_ptr + 1) % self.buffer.len();
+        self.write_ptr = (self.write_ptr + 1) % self.capacity();
     }
 
     pub fn pop(&mut self) -> T {
         //todo!()
         let val = self.peek();
-        self.read_ptr = (self.read_ptr + 1) % self.buffer.len();
+        self.read_ptr = (self.read_ptr + 1) % self.capacity();
         val
 
     }
@@ -65,7 +65,7 @@ impl<T: Copy + Default> RingBuffer<T> {
 
     pub fn set_read_index(&mut self, index: usize) {
         //todo!()
-        self.read_ptr = index % self.buffer.len();
+        self.read_ptr = index % self.capacity();
     }
 
     pub fn get_write_index(&self) -> usize {
@@ -75,7 +75,7 @@ impl<T: Copy + Default> RingBuffer<T> {
 
     pub fn set_write_index(&mut self, index: usize) {
         //todo!()
-        self.write_ptr = index % self.buffer.len();
+        self.write_ptr = index % self.capacity();
     }
 
     pub fn len(&self) -> usize {
@@ -85,14 +85,14 @@ impl<T: Copy + Default> RingBuffer<T> {
             self.write_ptr - self.read_ptr
         } else {
             // Handle the case where write pointer has wrapped around
-            self.buffer.len() - (self.read_ptr - self.write_ptr)
+            self.capacity() - (self.read_ptr - self.write_ptr)
         }
     }
 
     pub fn capacity(&self) -> usize {
         // Return the length of the internal buffer.
         //todo!()
-        self.buffer.capacity()
+        self.buffer.len()
     }
 }
 
