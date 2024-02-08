@@ -30,14 +30,12 @@ impl<T: Copy + Default> RingBuffer<T> {
     // `put` and `peek` write/read without advancing the indices.
     pub fn put(&mut self, value: T) {
         //todo!()
-        if let Some(slot) = self.buffer.get_mut(self.write_ptr) {
-            *slot = value;
-        }
+        self.buffer[self.write_ptr] = value;
     }
 
     pub fn peek(&self) -> T {
         //todo!()
-        self.buffer.get(self.read_ptr).copied().unwrap_or_default()
+        self.buffer[self.read_ptr]
     }
 
     pub fn get(&self, offset: usize) -> T {
@@ -83,7 +81,12 @@ impl<T: Copy + Default> RingBuffer<T> {
     pub fn len(&self) -> usize {
         // Return number of values currently in the buffer.
         //todo!()
-        self.buffer.len()
+        if self.write_ptr >= self.read_ptr {
+            self.write_ptr - self.read_ptr
+        } else {
+            // Handle the case where write pointer has wrapped around
+            self.buffer.len() - (self.read_ptr - self.write_ptr)
+        }
     }
 
     pub fn capacity(&self) -> usize {
@@ -128,7 +131,7 @@ mod tests {
             assert_eq!(buffer.get_read_index(), i+1);
             assert_eq!(buffer.get_write_index(), i+1);
         }
-        assert_eq!(buffer.len(),5);
+        assert_eq!(buffer.len(),0);
         println!("Test 2 passed!");
     }
     #[test]
@@ -186,7 +189,7 @@ mod tests {
         {
             buffer.set_write_index(i+500);
             buffer.put(i as i32 +500);
-            assert_eq!(buffer.get_write_index(), (i + 500) % buffer.len());
+            assert_eq!(buffer.get_write_index(), (i + 500) % buffer.capacity());
             buffer.set_read_index(buffer.get_write_index() as usize);
             assert_eq!(buffer.peek(), i as i32 +500);
         }
