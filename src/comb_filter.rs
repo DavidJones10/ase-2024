@@ -61,14 +61,11 @@ impl CombFilter {
 
     pub fn process(&mut self, input: &[&[f32]], output: &mut [&mut [f32]]) {
         //todo!("implement");
-        let mut channel_counter = 0;
-        for (out_slice,in_slice) in output.iter_mut().zip(input)
-        {
-            for (outVal, inVal) in out_slice.iter_mut().zip(in_slice.iter())
+        for  (out_chunk,in_chunk) in output.iter_mut().zip(input)
+        {   
+            for (channel_id,(outVal, inVal)) in out_chunk.iter_mut().zip(in_chunk.iter()).enumerate()
             {
-                let channel = channel_counter % self.numChannels;
-                self.calculate_filter(inVal, outVal, channel);
-                channel_counter +=1;
+                self.calculate_filter(inVal, outVal, channel_id);
             }
         }
     }
@@ -111,6 +108,7 @@ impl CombFilter {
         if calc_index >= self.max_delay as usize {
             calc_index -= self.max_delay as usize;
         }
+        assert_eq!(self.buffers[0].len() - 1, del_in_samps as usize);
     
         calc_index
     }
