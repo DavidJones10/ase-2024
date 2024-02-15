@@ -21,7 +21,7 @@ fn main() {
     // Parse command line arguments
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 4 {
-        eprintln!("Usage: {} <input wave filename> <output wav filename> <filter type: IIR or FIR> <delay in seconds> <Gain 0-1>", args[0]);
+        eprintln!("Usage: {} <input wave filename> <output wav filename> <filter type: IIR or FIR> <delay in seconds(float)> <Gain 0-1(float)>", args[0]);
         std::process::Command::new("cargo").arg("test").status().unwrap();
         return
     }
@@ -125,8 +125,6 @@ fn main() {
 mod tests {
     use std::{f32::consts::PI};
     
-    
-
     use super::*;   
     // Tests for zero output in periodic functions with delay equal to 1/2 the period
     #[test]
