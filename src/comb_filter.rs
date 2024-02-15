@@ -40,7 +40,7 @@ impl CombFilter {
             .collect();
         CombFilter{filterType: filter_type, 
                     buffers: buffers_,
-                    gain: 1.0,
+                    gain: 0.0,
                     delay: 0.0,
                     numChannels : num_channels,
                     last_sample : 0.0,
@@ -76,6 +76,9 @@ impl CombFilter {
         match param
         {
             Delay => {
+                if value > self.max_delay{
+                    return Error( Error::InvalidValue { param, value });
+                }
                 self.delay = value;
                 let index = self.find_read_index((value*self.sample_rate) as i32);
                 for buffer in self.buffers.iter_mut(){
@@ -97,20 +100,17 @@ impl CombFilter {
             Gain => return self.gain
         }
     }
-    fn find_read_index(&mut self, del_in_samps: i32) -> usize
-    {
-        let mut calc_index = if self.buffers[0].get_write_index() >= del_in_samps as usize {
-            self.buffers[0].get_write_index() - (del_in_samps as usize)
+    fn find_read_index(&mut self, del_in_samps: i32) -> usize {
+        let write_index = self.buffers[0].get_write_index() as i32;
+        let mut calc_index = if write_index >= del_in_samps {
+            write_index - del_in_samps
         } else {
-            self.buffers[0].get_write_index() + self.max_delay as usize - del_in_samps as usize
+            write_index - del_in_samps + self.buffers[0].capacity() as i32
         };
-    
-        if calc_index >= self.max_delay as usize {
-            calc_index -= self.max_delay as usize;
+        if calc_index >= self.max_delay as i32 {
+            calc_index -= self.buffers[0].capacity() as i32;
         }
-        assert_eq!(self.buffers[0].len() - 1, del_in_samps as usize);
-    
-        calc_index
+        calc_index as usize
     }
     fn calculate_filter(&mut self, inVal: &f32, outVal: &mut f32, channel: usize)
     {
@@ -122,9 +122,9 @@ impl CombFilter {
                         *outVal = *inVal + (self.gain * self.buffers[channel].pop());
                     }
                     IIR => {
+                        self.last_sample = self.buffers[channel].pop();
                         *outVal = *inVal + self.last_sample * self.gain;
                         self.buffers[channel].push(*outVal);
-                        self.last_sample = self.buffers[channel].pop();
                     }
                 }
     }
@@ -138,3 +138,21 @@ mod tests {
     use super::*;   
     // #[test]
 }
+
+
+
+
+/* 
+fn find_read_index(&mut self, del_in_samps: i32) -> usize {
+    let write_index = self.buffer.get_write_index() as i32;
+    let mut calc_index = if write_index >= del_in_samps {
+        write_index - del_in_samps
+    } else {
+        write_index - del_in_samps + self.buffer.capacity() as i32
+    };
+    if calc_index >= self.max_delay as i32 {
+        calc_index -= self.buffer.capacity() as i32;
+    }
+    calc_index as usize
+}
+*/

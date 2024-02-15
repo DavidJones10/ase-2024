@@ -9,46 +9,9 @@ fn show_info() {
     eprintln!("(c) 2024 Stephen Garrett & Ian Clester");
 }
 
-fn scale_f32_to_original(sample: f32, spec: hound::WavSpec) -> i32 {
-    match spec.sample_format {
-        hound::SampleFormat::Float => sample as i32,
-        hound::SampleFormat::Int => {
-            // Step 1: Dequantization
-            let dequantized_sample = sample * (i32::MAX as f32);
-
-            // Step 2: Denormalization
-            match spec.bits_per_sample {
-                8 => dequantized_sample.round() as i8 as i32,
-                16 => dequantized_sample.round() as i16 as i32,
-                24 => dequantized_sample.round() as i32, // No need to adjust for 24 bits
-                32 => dequantized_sample.round() as i32, // No need to adjust for 32 bits
-                _ => unimplemented!("Unsupported bits per sample"),
-            }
-        }
-        
-    }
-}
-fn get_sample_type(spec: &hound::WavSpec) -> SampleType {
-    match spec.sample_format {
-        hound::SampleFormat::Float => SampleType::Float,
-        hound::SampleFormat::Int => {
-            match spec.bits_per_sample {
-                8 => SampleType::I8,
-                16 => SampleType::I16,
-                24 => SampleType::I24,
-                32 => SampleType::I32,
-                _ => unimplemented!("Unsupported bits per sample"),
-            }
-        }
-    }
-}
-
-enum SampleType {
-    Float,
-    I8,
-    I16,
-    I24,
-    I32,
+fn scale_f32_to_i16(sample: f32) -> i16 {
+    let dequantized_sample = sample * (i16::MAX as f32);
+    dequantized_sample.round() as i16
 }
 
 fn main() {
@@ -98,16 +61,19 @@ fn main() {
     let _ = comb_filter.set_param(comb_filter::FilterParam::Gain, gain);
     // TODO: Modify this to process audio in blocks using your comb filter and write the result to an audio file.
     //       Use the following block size:
-    
+
     let block_size = 1024;
     let mut input_buffer = vec![0.0; block_size*channels as usize];
     let mut output_buffer: Vec<f32> = vec![0.0; block_size*channels as usize];
-    for sample in reader.samples::<i32>() {
+    input_buffer.clear();
+    let mut count = 0;
+    for sample in reader.samples::<i16>() {
+        
         let sample = sample.unwrap() as f32 / (1 << 15) as f32;
         // Push the sample into the input buffer
         input_buffer.push(sample);
         // Process a block when the input buffer is full
-        if input_buffer.len() >= (block_size * channels as usize) {
+        if input_buffer.len() == (block_size * channels as usize) {
             // Split the block into chunks of size: channels
             let input_slice: Vec<_> = input_buffer.chunks(channels as usize).collect();
             let mut output_slice: Vec<_> = output_buffer.chunks_mut(channels as usize).collect();
@@ -118,7 +84,7 @@ fn main() {
             // Write processed samples to the text file
             for channel in output_slice {
                 for sample in channel {
-                    let sampleInt = scale_f32_to_original(*sample, spec);
+                    let sampleInt = scale_f32_to_i16(*sample);
                     writer.write_sample(sampleInt).unwrap();
                 }
             }
@@ -126,9 +92,10 @@ fn main() {
             input_buffer.clear();
         }
     }
-    if !input_buffer.is_empty(){
-            let input_slice: Vec<_> = input_buffer.chunks(channels as usize).collect();
-            let mut output_slice: Vec<_> = output_buffer.chunks_mut(channels as usize).collect();
+    /* */
+    if ! (input_buffer.len()==0){
+            let input_slice: Vec<_> = input_buffer[0..input_buffer.len()].chunks(channels as usize).collect();
+            let mut output_slice: Vec<_> = output_buffer[0..input_buffer.len()].chunks_mut(channels as usize).collect();
             
             // Process the block
             comb_filter.process(&input_slice, &mut output_slice);
@@ -136,13 +103,15 @@ fn main() {
             // Write processed samples to the text file
             for channel in output_slice {
                 for sample in channel {
-                    let sampleInt = scale_f32_to_original(*sample, spec);
+                    let sampleInt = scale_f32_to_i16(*sample);
                     writer.write_sample(sampleInt).unwrap();
+                    
                 }
             }
             input_buffer.clear();
     }
     assert_eq!(input_buffer.len(),0);
+    /**/
     writer.finalize().unwrap();
     println!("Yay! No errors! Use this file wisely...");
     /* 
