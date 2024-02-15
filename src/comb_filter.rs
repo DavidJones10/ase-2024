@@ -76,8 +76,23 @@ impl CombFilter {
         match param
         {
             Delay => {
-                if value > self.max_delay{
-                    return Error( Error::InvalidValue { param, value });
+                match self.filterType {
+                    FilterType::FIR => {
+                        if value > self.max_delay || value < 0.0{
+                            println!("Delay must be greater than 0 and less than or equal to max delay size!");
+                            return Err(Error::InvalidValue { param, value });
+                        }
+                    },
+                    FilterType::IIR => {
+                        if value <= 0.0 {
+                            println!("Delay cannot be zero or less than zero in an IIR filter!");
+                            return Err(Error::InvalidValue { param, value });
+                        }
+                        if value > self.max_delay{
+                            println!("Delay must be less than or equal to max delay size!");
+                            return Err(Error::InvalidValue { param, value });
+                        }
+                    }
                 }
                 self.delay = value;
                 let index = self.find_read_index((value*self.sample_rate) as i32);
@@ -85,8 +100,17 @@ impl CombFilter {
                     buffer.set_read_index(index);
                 }
             },
-            Gain => self.gain = value,
-            _ => println!("Invalid Parameter!")
+            Gain => {
+                if value < 0.0 || value > 1.0{
+                    println!("Gain must be between 0.0 and 1.0!");
+                    return Err(Error::InvalidValue { param, value });
+                }
+                self.gain = value
+            },
+            _ => {
+                println!("Invalid Parameter!");
+                return Err(Error::InvalidValue { param, value });
+            }
         }
         Ok(())
     }
@@ -132,27 +156,6 @@ impl CombFilter {
     // TODO: feel free to define other functions for your own use
 }
 
-// TODO: feel free to define other types (here or in other modules) for your own use
-#[cfg(test)]
-mod tests {
-    use super::*;   
-    // #[test]
-}
 
 
 
-
-/* 
-fn find_read_index(&mut self, del_in_samps: i32) -> usize {
-    let write_index = self.buffer.get_write_index() as i32;
-    let mut calc_index = if write_index >= del_in_samps {
-        write_index - del_in_samps
-    } else {
-        write_index - del_in_samps + self.buffer.capacity() as i32
-    };
-    if calc_index >= self.max_delay as i32 {
-        calc_index -= self.buffer.capacity() as i32;
-    }
-    calc_index as usize
-}
-*/
