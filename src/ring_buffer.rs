@@ -40,7 +40,8 @@ impl<T: Copy + Default> RingBuffer<T> {
 
     pub fn get(&self, offset: usize) -> T {
         //todo!()
-        self.buffer.get(offset).copied().unwrap_or_default()
+        let safe_offset = offset % self.buffer.capacity();
+        self.buffer.get(safe_offset).copied().unwrap_or_default()
     }
 
     // `push` and `pop` write/read and advance the indices.
@@ -93,6 +94,32 @@ impl<T: Copy + Default> RingBuffer<T> {
         // Return the length of the internal buffer.
         //todo!()
         self.buffer.len()
+    }
+}
+impl RingBuffer<f32>{
+    // returns a value at a a non-integer offset for fractional delays
+    pub fn get_frac(&self, offset: f32)->f32{
+        let floor_samp = self.get(offset.floor() as usize);
+        let ceil_samp = self.get(offset.ceil() as usize);
+        let frac = offset - offset.floor();
+        floor_samp * (1.0 - frac) + ceil_samp * frac
+    }
+    // meant to be used similarly to pop, simply put in a offset and it will calculate the 
+    // read pointer's position based on the write pointer
+    pub fn pop_frac(&self, offset: f32)->f32{
+        let mut read_int = self.write_ptr as i32 - offset.floor() as i32;
+        let mut read_point = 0;
+        if read_int < 0 {
+            read_int += self.capacity() as i32;
+            read_point = read_int as usize;
+        }else{
+            read_point = read_int as usize;
+        }
+            
+        let floor_samp = self.get(read_point);
+        let ceil_samp = self.get(read_point + 1_usize);
+        let frac = offset - offset.floor();
+        floor_samp * (1.0 - frac) + ceil_samp * frac
     }
 }
 
