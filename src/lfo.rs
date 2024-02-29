@@ -23,6 +23,10 @@ pub struct LFO{
     read_ptr: usize,
     num_samples: usize
 }
+pub enum LfoParams{
+    Frequency,
+    Amplitude,
+}
 
 pub enum WaveType{
     Sine,
@@ -34,7 +38,7 @@ pub enum WaveType{
 impl LFO{
     pub fn new(sample_rate_: f32, waveType_: WaveType, minFrequency: f32, frequency_: f32, amplitude_: f32)->Self{
         assert!(frequency_ >= minFrequency);
-        let buffer_size = 2*(sample_rate_/minFrequency) as usize;
+        let buffer_size = 2*(sample_rate_/minFrequency) as usize;// maximum size of array for minimum frequency
         let buff = vec![0.0;buffer_size];
         let mut lfo = LFO{
             waveType: waveType_,
@@ -59,13 +63,16 @@ impl LFO{
     /** Sets LFO frequency and calculates new wavetable
      */
     pub fn set_frequency(&mut self, frequency:f32){
-        
-        if frequency < self.min_frequency{
-            self.frequency = self.min_frequency;
-        }else{
+        if frequency == 0.0{
             self.frequency = frequency;
+            self.num_samples = 0;
+        }else if frequency > self.min_frequency{
+            self.frequency = frequency;
+            self.num_samples = 2* (self.sample_rate / self.frequency) as usize;
+        }else{
+            self.frequency = self.min_frequency;
+            self.num_samples = 2* (self.sample_rate / self.frequency) as usize;
         }
-        self.num_samples = 2* (self.sample_rate / self.frequency) as usize;
         self.fill_waveform();
     }
     /** Sets amplitude of the LFO output
@@ -79,6 +86,16 @@ impl LFO{
         self.waveType = waveType_;
         self.fill_waveform();
         self.read_ptr = 0;
+    }
+    pub fn reset(&mut self){
+        self.fill_waveform();
+        self.read_ptr = 0;
+    }
+    pub fn get_param(&mut self, param: LfoParams)->f32{
+        match param{
+            LfoParams::Frequency=> self.frequency,
+            LfoParams::Amplitude=>self.amplitude,
+        }
     }
     /** Fills internal wavetable buffer with current waveform
      */
@@ -127,7 +144,7 @@ mod tests {
             let sine = (i as f32 * w).sin();
             let popped = lfo.pop();
             //println!("sine: {}, popped: {}", sine, popped);
-            assert_close!(sine, popped, 0.1);
+            assert_close!(sine, popped, 0.01);
         }
     }
 }

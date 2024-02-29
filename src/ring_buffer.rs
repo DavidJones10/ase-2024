@@ -102,13 +102,18 @@ impl RingBuffer<f32>{
         let floor = offset.trunc();
         let floor_samp = self.get(floor as usize);
         let ceil_samp = self.get(floor as usize + 1);
-        let frac = offset - floor;
+        let frac = offset.fract();
         floor_samp * (1.0 - frac) + ceil_samp * frac
     }
     // meant to be used similarly to pop, simply put in a offset and it will calculate the 
     // read pointer's position based on the write pointer
     pub fn pop_frac(& self, offset: f32)->f32{
-        let mut read_int = self.write_ptr as i32 - offset.trunc() as i32;
+        let fract_ptr_offset = if offset.fract() == 0.0{
+            0
+        }else{
+            1
+        };
+        let mut read_int = self.write_ptr as i32 - offset.ceil() as i32 - fract_ptr_offset;
         let mut read_point = 0;
         if read_int < 0 {
             read_int += self.capacity() as i32;
@@ -119,9 +124,10 @@ impl RingBuffer<f32>{
         
         let floor_samp = self.get(read_point);
         let ceil_samp = self.get(read_point + 1_usize);
-        let frac = offset - offset.floor();
+        let frac = offset.fract();
         floor_samp * (1.0 - frac) + ceil_samp * frac
     }
+
 }
 
 #[cfg(test)]
@@ -222,6 +228,37 @@ mod tests {
             assert_eq!(buffer.peek(), i as i32 +500);
         }
         println!("Test 5 passed!");
+    }
+    #[test]
+    fn frac_test(){
+        let mut buffer = RingBuffer::<f32>::new(5);
+        buffer.push(0.0);
+        buffer.push(1.0);
+        assert_eq!(buffer.get_frac(0.5), 0.5);
+        buffer.push(2.0);
+        assert_eq!(buffer.get_frac(1.5), 1.5);
+        buffer.push(4.0);
+        assert_eq!(buffer.get_frac(2.5), 3.0);
+    }
+    #[test]
+    fn pop_frac_test(){
+        let mut buffer = RingBuffer::<f32>::new(5);
+        for i in 0..10{
+            buffer.push(i as f32);
+            //println!("popped: {}, i: {}", buffer.pop_frac(0.5), i);
+            if i > 0{
+                assert_eq!(buffer.pop_frac(0.5), i as f32 - 0.5);
+            }
+        }
+        buffer.reset();
+        for i in 0..10{
+
+            //println!("popped: {}, i: {}", buffer.pop_frac(2.0), i);
+            if i > 2{
+                assert_eq!(buffer.pop_frac(2.0), i as f32 - 2.0)
+            }
+            buffer.push(i as f32);
+        }
     }
 
 }

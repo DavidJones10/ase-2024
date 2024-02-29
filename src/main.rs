@@ -34,9 +34,9 @@ fn main() {
     };
     let mut writer = hound::WavWriter::create(&args[2], new_spec).unwrap();
     let mut vibe = Vibrato::new(channels as usize, sr as f32, 50.0);
-    let mut delay = 4.0;
-    let mut rate = 2.0;
-    let width = 0.8;
+    let mut delay = 8.0;
+    let mut rate = 5.0;
+    let width = 0.1;
     let dry_wet = 1.0;
     vibe.set_delay(delay);
     vibe.set_rate(rate);
@@ -47,10 +47,10 @@ fn main() {
         //let sample = sample.unwrap() as f32 / i8::MAX as f32; // For i8
         //let sample = sample.unwrap() as f32 / (1 << 15) as f32; // for i16
         let sample = sample.unwrap() as f32 / 16777215.0; // for i24
-        if i % 22580 == 0{
+        /* if i % 22580 == 0{
             delay += 0.1;
             vibe.set_delay(delay);
-        }
+        } */
         let processed = vibe.process(sample,i%channels as usize);
         writer.write_sample(processed);
     }
