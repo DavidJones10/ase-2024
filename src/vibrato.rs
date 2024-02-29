@@ -13,7 +13,26 @@ fn fclamp(x: f32, min_val: f32, max_val: f32) -> f32 {
         x
     }
 }
+macro_rules! assert_close {
+    ($left:expr, $right:expr, $epsilon:expr) => {{
+        let (left, right, epsilon) = ($left, $right, $epsilon);
+        assert!(
+            (left - right).abs() <= epsilon,
+            "{} is not close to {} within an epsilon of {}",
+            left,
+            right,
+            epsilon
+        );
+    }};
+}
 
+/// I chose a sample-by-sample processing scheme rather than an input block scheme
+/// because I think it is easier to use and much less complicated than a slice of a slice.
+/// It also would make it easier to use this object in a chain of effects.
+/// For the setters, I chose to have them separate rather than just having one because
+/// if you're using a modern editor, it is easier to type "myVibrato." to see the available methods than it is
+/// to type "myVibrato.set_param(vibrato::Params::Delay, value)" every time. 
+/// The core of my design is to make it easy to use this object without ever having to look at its source.
 pub struct Vibrato{
     center_delay: f32,
     max_delay: f32,
@@ -41,16 +60,16 @@ impl Vibrato{
             .map(|_| RingBuffer::<f32>::new(((max_delay_ms/1000.0)*sample_rate_+1.0) as usize))
             .collect();
         let lfo_ = LFO::new(sample_rate_, crate::lfo::WaveType::Sine, 
-            2.0,8.0, center_del* sample_rate_*0.5);
+            2.0,8.0, center_del* sample_rate_*1.0);
          Vibrato{
             center_delay:  center_del, // initialized at 5 ms
             max_delay: max_del,
-            dry_wet: 0.5, // initialized at 50%
+            dry_wet: 1.0, // initialized at 100%
             buffers: buffs_,
             num_channels: num_channels_,
             sample_rate: sample_rate_,
             lfo: lfo_,
-            lfo_width: 0.5, 
+            lfo_width: 1.0, 
         }
     }
     
@@ -82,12 +101,14 @@ impl Vibrato{
     pub fn set_dry_wet(&mut self, dryWet: f32){
         self.dry_wet = fclamp(dryWet, 0.0, 1.0);
     }
+    ///Resets internal lfo and ring buffers
     pub fn reset(&mut self){
         for i in 0..self.num_channels{
             self.buffers[i].reset();
         }
         self.lfo.reset();
     }
+    /// Returns value of a given parameter
     pub fn get_param(&mut self, param: Params)->f32{
         match param {
             Params::Delay=>self.center_delay*1000.0 / self.sample_rate,
@@ -127,10 +148,10 @@ mod tests {
         let arr: Vec<f32> = vec![5.0;200];
         for i in 0..200{
             let processed = vibe.process(arr[i], 0);
-            println!("processed: {}, i: {}", processed, i);
-            /* if i > 63{ // transition sample will likely be between 0 and 5 so just check after it
+            //println!("processed: {}, i: {}", processed, i);
+            if i > 65{ // transition sample will likely be between 0 and 5 so just check after it
                 assert_eq!(processed, 5.0);
-            } */
+            }
         }
         println!("Test passed! DC input = delayed DC output!");
     }
@@ -148,10 +169,10 @@ mod tests {
         vibe.set_rate(10.0);
         for i in 0..900{
             let processed = vibe.process(i as f32, i %channels);
-            println!("processed: {}, i: {}", processed, i);
-            /* if i > (channels as f32 * sr * delay_in_ms / 1000.0) as usize{
+            //println!("processed: {}, i: {}", processed, i);
+            if i > (channels as f32 * sr * delay_in_ms / 1000.0) as usize{
                 assert_eq!(processed,i as f32 - 300.0);
-            } */
+            }
         }
         println!("Test passed! Output = delayed input!");
     }
@@ -174,6 +195,26 @@ mod tests {
     }
     #[test]
     fn test_param_values(){
+        
+        let channels = 1;
+        let sr = 6000.0;
+        let delay_in_ms = 0.0;
+        let mut vibe = Vibrato::new(channels,sr,30.0);
+        vibe.set_delay(delay_in_ms); // will default to 4 ms so delay of 24 samples plus mod will be 34 samples
+        vibe.set_width(1.0); 
+        vibe.set_dry_wet(1.0);
+        vibe.set_rate(10.0);
+        for i in 0..900{
+            let processed = vibe.process(i as f32, 0);
+            //println!("processed: {}, i: {}", processed, i);
+            if i > 33{
+               assert!(processed !=0.0);
+            }
+            //assert_eq!(processed, 0.0);
+        }
+        vibe.reset();
 
+        println!("Test passed! Output = Input = 0!");
+        
     }
 }

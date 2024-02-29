@@ -16,8 +16,8 @@ fn main() {
 
     // Parse command line arguments
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 3 {
-        eprintln!("Usage: {} <input wave filename> <output text filename>", args[0]);
+    if args.len() < 6 {
+        eprintln!("Usage: {} <input wave filename> <output text filename> <Delay in ms> <Modulation rate in Hz> <Modulation Width 0-1> <DryWet 0-1>", args[0]);
         return
     }
 
@@ -32,12 +32,38 @@ fn main() {
         bits_per_sample: 32,
         sample_format: hound::SampleFormat::Float,
     };
+    let delay: f32 = match args[3].parse() {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Invalid delay in ms: {}", args[4]);
+            return;
+        }
+    };
+    let rate: f32 = match args[4].parse() {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Invalid rate in Hz: {}", args[4]);
+            return;
+        }
+    };
+    let width: f32 = match args[5].parse() {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Invalid width: {}", args[4]);
+            return;
+        }
+    };
+    let dry_wet: f32 = match args[6].parse() {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Invalid dry_wet: {}", args[4]);
+            return;
+        }
+    };
+
     let mut writer = hound::WavWriter::create(&args[2], new_spec).unwrap();
     let mut vibe = Vibrato::new(channels as usize, sr as f32, 50.0);
-    let mut delay = 8.0;
-    let mut rate = 5.0;
-    let width = 0.1;
-    let dry_wet = 1.0;
+    
     vibe.set_delay(delay);
     vibe.set_rate(rate);
     vibe.set_width(width);
@@ -45,8 +71,8 @@ fn main() {
     
     for (i, sample) in reader.samples::<i32>().enumerate() {
         //let sample = sample.unwrap() as f32 / i8::MAX as f32; // For i8
-        //let sample = sample.unwrap() as f32 / (1 << 15) as f32; // for i16
-        let sample = sample.unwrap() as f32 / 16777215.0; // for i24
+        let sample = sample.unwrap() as f32 / (1 << 15) as f32; // for i16
+        //let sample = sample.unwrap() as f32 / 16777215.0; // for i24
         /* if i % 22580 == 0{
             delay += 0.1;
             vibe.set_delay(delay);
