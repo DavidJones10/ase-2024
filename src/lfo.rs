@@ -1,5 +1,7 @@
 use core::num;
 use std::{f32::consts::PI};
+
+use crate::ring_buffer::RingBuffer;
 macro_rules! assert_close {
     ($left:expr, $right:expr, $epsilon:expr) => {{
         let (left, right, epsilon) = ($left, $right, $epsilon);
@@ -17,11 +19,9 @@ pub struct LFO{
     frequency: f32,
     amplitude: f32,
     waveType: WaveType,
-    buffer: Vec<f32>,
-    min_frequency: f32,
+    buffer: RingBuffer<f32>,
     sample_rate: f32,
-    read_ptr: usize,
-    num_samples: usize
+    phase_offset: f32
 }
 pub enum LfoParams{
     Frequency,
@@ -36,96 +36,86 @@ pub enum WaveType{
 }
 
 impl LFO{
-    pub fn new(sample_rate_: f32, waveType_: WaveType, minFrequency: f32, frequency_: f32, amplitude_: f32)->Self{
-        assert!(frequency_ >= minFrequency);
-        let buffer_size = 2*(sample_rate_/minFrequency) as usize;// maximum size of array for minimum frequency
-        let buff = vec![0.0;buffer_size];
+    /// Creates a new 
+    pub fn new(sample_rate_: f32, waveType_: WaveType, frequency_: f32, amplitude_: f32)->Self{
+        let buff = RingBuffer::<f32>::new(sample_rate_ as usize);
         let mut lfo = LFO{
             waveType: waveType_,
             frequency: frequency_,
             amplitude: amplitude_,
-            min_frequency: minFrequency,
             sample_rate: sample_rate_,
             buffer: buff,
-            read_ptr: 0,
-            num_samples: buffer_size,
+            phase_offset: 0.0
         };
         lfo.set_frequency(frequency_);
         lfo.set_amplitude(amplitude_); 
         lfo.fill_waveform();
         lfo
     }
-    pub fn pop(&mut self)->f32{
-        let out = self.buffer[self.read_ptr]*self.amplitude;
-        self.read_ptr = (self.read_ptr + 1) % self.num_samples;
-        out
+    /// Reads one sample at a time from the wavetable buffer
+    pub fn pop(&mut self) -> f32 {
+        //dbg!(self.phase_offset);
+        let val = self.buffer.get_frac(self.phase_offset);
+        self.phase_offset += self.frequency ;
+        val * self.amplitude
     }
-    /** Sets LFO frequency and calculates new wavetable
-     */
-    pub fn set_frequency(&mut self, frequency:f32){
-        if frequency == 0.0{
-            self.frequency = frequency;
-            self.num_samples = 0;
-        }else if frequency > self.min_frequency{
-            self.frequency = frequency;
-            self.num_samples = 2* (self.sample_rate / self.frequency) as usize;
-        }else{
-            self.frequency = self.min_frequency;
-            self.num_samples = 2* (self.sample_rate / self.frequency) as usize;
-        }
-        self.fill_waveform();
+    /// Gets sample from LFO wavetable at given offset
+    pub fn get(&self, phase_offset: f32) -> f32 {
+        self.buffer.get_frac(phase_offset) * self.amplitude
     }
-    /** Sets amplitude of the LFO output
-     */
+    /// Sets LFO frequency and calculates new wavetable
+    pub fn set_frequency(&mut self, frequency: f32) {
+        self.frequency = frequency;
+    }
+    /// Sets amplitude of the LFO output
     pub fn set_amplitude(&mut self, amplitude: f32){
         self.amplitude = amplitude;
     }
-    /** Sets LFO WaveType
-     */
+    /// Sets LFO WaveType
     pub fn set_wave_type(&mut self, waveType_: WaveType){
         self.waveType = waveType_;
         self.fill_waveform();
-        self.read_ptr = 0;
     }
+    /// Refills the wavetable and resets the read pointer
     pub fn reset(&mut self){
+        self.phase_offset = 0.0;
         self.fill_waveform();
-        self.read_ptr = 0;
     }
+    /// Returns the value of a given parameter
     pub fn get_param(&mut self, param: LfoParams)->f32{
         match param{
             LfoParams::Frequency=> self.frequency,
             LfoParams::Amplitude=>self.amplitude,
         }
     }
-    /** Fills internal wavetable buffer with current waveform
-     */
-    fn fill_waveform(&mut self){
-        let w = 2.0 * PI * self.frequency / self.sample_rate;
-        for i in 0..self.num_samples{
-            self.buffer[i] = match self.waveType{
-                WaveType::Sine => (w * i as f32).sin(),
-                WaveType::Tri =>{
-                    let slope = 2.0 / self.frequency;
-                    let t_mod = (i as f32 / self.sample_rate) % (1.0 / self.frequency);
-                    if t_mod < slope{
-                        t_mod * slope
-                    }else{
-                        2.0 - t_mod * slope
+    /// Fills internal wavetable buffer with current waveform
+    pub fn fill_waveform(&mut self){
+        let num_samples = self.buffer.capacity();
+
+        for i in 0..num_samples {
+            let phase = i as f32 / num_samples as f32;
+            let val = match self.waveType {
+                WaveType::Sine => (2.0 * PI * phase).sin(),
+                WaveType::Tri => {
+                    let x = phase % 1.0;
+                    if x < 0.25 {
+                        4.0 * x
+                    } else if x < 0.75 {
+                        2.0 - 4.0 * x
+                    } else {
+                        4.0 * x - 4.0
                     }
-                },
-                WaveType::Saw => {
-                    let t = (i as f32 / self.sample_rate);
-                    2.0 * (t * self.frequency - (t * self.frequency).floor())
-                },
-                WaveType::Square =>{
-                    let t = (i as f32 / self.sample_rate);
-                    if (t * self.frequency).sin() >= 0.0{
+                }
+                WaveType::Saw => 2.0 * phase - 1.0,
+                WaveType::Square => {
+                    if phase < 0.5 {
                         1.0
-                    }else{
+                    } else {
                         -1.0
                     }
                 }
-            }
+            };
+            self.buffer.push(val);
         }
     }
 }
@@ -136,14 +126,23 @@ mod tests {
     use super::*;   
     #[test]
     fn test_lfo(){
-        let mut lfo = LFO::new(44100.0, WaveType::Sine, 
-                                0.001,8.0, 1.0);
-        for i in 0..88200{
+        let mut lfo = LFO::new(32.0, WaveType::Sine,0.1, 1.0);
+        for i in 0..64{
             
-            let w = 2.0 * PI * 8.0 / 44100.0;
+            let w = 2.0 * PI * 0.1 / 32.0;
             let sine = (i as f32 * w).sin();
             let popped = lfo.pop();
-            //println!("sine: {}, popped: {}", sine, popped);
+            //println!("sine: {}, popped: {}, i: {}", sine, popped, i);
+            assert_close!(sine, popped, 0.01);
+        }
+        lfo.reset();
+        lfo.set_frequency(30.0);
+        for i in 0..64{
+            
+            let w = 2.0 * PI * 30.0 / 32.0;
+            let sine = (i as f32 * w).sin();
+            let popped = lfo.pop();
+            //println!("sine: {}, popped: {}, i: {}", sine, popped, i);
             assert_close!(sine, popped, 0.01);
         }
     }

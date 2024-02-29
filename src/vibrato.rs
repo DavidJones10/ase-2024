@@ -59,8 +59,8 @@ impl Vibrato{
         let buffs_ = (0..num_channels_)
             .map(|_| RingBuffer::<f32>::new(((max_delay_ms/1000.0)*sample_rate_+1.0) as usize))
             .collect();
-        let lfo_ = LFO::new(sample_rate_, crate::lfo::WaveType::Sine, 
-            2.0,8.0, center_del* sample_rate_*1.0);
+        let lfo_ = LFO::new(sample_rate_, crate::lfo::WaveType::Sine
+                                    ,8.0, center_del* sample_rate_*1.0);
          Vibrato{
             center_delay:  center_del, // initialized at 5 ms
             max_delay: max_del,

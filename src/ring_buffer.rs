@@ -99,6 +99,9 @@ impl<T: Copy + Default> RingBuffer<T> {
 impl RingBuffer<f32>{
     // returns a value at a a non-integer offset for fractional delays
     pub fn get_frac(&self, offset: f32)->f32{
+        if offset == 0.0{
+            self.get(0);
+        }
         let floor = offset.trunc();
         let floor_samp = self.get(floor as usize);
         let ceil_samp = self.get(floor as usize + 1);
