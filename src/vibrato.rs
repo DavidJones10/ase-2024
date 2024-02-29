@@ -210,9 +210,21 @@ mod tests {
             if i > 33{
                assert!(processed !=0.0);
             }
-            //assert_eq!(processed, 0.0);
         }
         vibe.reset();
+        vibe.set_dry_wet(0.5);
+        vibe.set_rate(0.0);
+        vibe.set_width(0.0);
+        let ones = vec![1.0;900];
+        for i in 0..900{
+            let processed = vibe.process(ones[i], 0);
+            //println!("processed: {}, i: {}", processed, i);
+            if i <= 25{
+               assert_close!(0.5, processed, 0.0001);
+            }else{
+                assert_close!(1.0, processed, 0.00001)
+            }
+        }
 
         println!("Test passed! Output = Input = 0!");
         

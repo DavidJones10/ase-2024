@@ -18,6 +18,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 6 {
         eprintln!("Usage: {} <input wave filename> <output text filename> <Delay in ms> <Modulation rate in Hz> <Modulation Width 0-1> <DryWet 0-1>", args[0]);
+        std::process::Command::new("cargo").arg("test").status().unwrap();
         return
     }
 

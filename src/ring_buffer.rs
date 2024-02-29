@@ -111,6 +111,9 @@ impl RingBuffer<f32>{
     // meant to be used similarly to pop, simply put in a offset and it will calculate the 
     // read pointer's position based on the write pointer
     pub fn pop_frac(& self, offset: f32)->f32{
+        if offset == 0.0{
+            self.get(self.write_ptr);
+        }
         let fract_ptr_offset = if offset.fract() == 0.0{
             0
         }else{
