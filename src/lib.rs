@@ -1,5 +1,8 @@
+use comb_filter::CombFilter;
 use nih_plug::prelude::*;
-use std::sync::Arc;
+use std::sync::{mpsc::channel, Arc};
+mod comb_filter;
+mod ring_buffer;
 
 // This is a shortened version of the gain example with most comments removed, check out
 // https://github.com/robbert-vdh/nih-plug/blob/master/plugins/examples/gain/src/lib.rs to get
@@ -7,6 +10,8 @@ use std::sync::Arc;
 
 struct AseExample {
     params: Arc<AseExampleParams>,
+    filt: Option<CombFilter>,
+
 }
 
 #[derive(Params)]
@@ -17,12 +22,17 @@ struct AseExampleParams {
     /// gain parameter is stored as linear gain while the values are displayed in decibels.
     #[id = "gain"]
     pub gain: FloatParam,
+    #[id = "delay"]
+    pub delay: FloatParam,
+    #[id = "filter_type"]
+    pub filter_type: EnumParam<comb_filter::FilterType>,
 }
 
 impl Default for AseExample {
     fn default() -> Self {
         Self {
             params: Arc::new(AseExampleParams::default()),
+            filt: None,
         }
     }
 }
@@ -36,30 +46,37 @@ impl Default for AseExampleParams {
             gain: FloatParam::new(
                 "Gain",
                 util::db_to_gain(0.0),
-                FloatRange::Skewed {
-                    min: util::db_to_gain(-30.0),
-                    max: util::db_to_gain(30.0),
-                    // This makes the range appear as if it was linear when displaying the values as
-                    // decibels
-                    factor: FloatRange::gain_skew_factor(-30.0, 30.0),
+                FloatRange::Linear {
+                    min: util::db_to_gain(-24.0),
+                    max: util::db_to_gain(0.0),
                 },
             )
             // Because the gain parameter is stored as linear gain instead of storing the value as
             // decibels, we need logarithmic smoothing
-            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_smoother(SmoothingStyle::Logarithmic(100.0))
             .with_unit(" dB")
             // There are many predefined formatters we can use here. If the gain was stored as
             // decibels instead of as a linear gain value, we could have also used the
             // `.with_step_size(0.1)` function to get internal rounding.
             .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
             .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+
+            delay: FloatParam::new(
+                "Time",
+                200.0,
+                FloatRange::Linear { min: 0.0, max: 2.0 },
+            ).with_smoother(SmoothingStyle::Linear(300.0))
+             .with_unit("sec")
+             .with_step_size(0.001),
+            filter_type: EnumParam::new("Filter Type", comb_filter::FilterType::FIR),
+
         }
     }
 }
 
 impl Plugin for AseExample {
-    const NAME: &'static str = "Ase Example";
-    const VENDOR: &'static str = "Ian Clester";
+    const NAME: &'static str = "Simple Comb Filter";
+    const VENDOR: &'static str = "David Jones";
     const URL: &'static str = env!("CARGO_PKG_HOMEPAGE");
     const EMAIL: &'static str = "ijc@gatech.edu";
 
@@ -108,6 +125,8 @@ impl Plugin for AseExample {
         // Resize buffers and perform other potentially expensive initialization operations here.
         // The `reset()` function is always called right after this function. You can remove this
         // function if you do not need it.
+        let mut filt_ = CombFilter::new(comb_filter::FilterType::IIR,2.0,_buffer_config.sample_rate,2);
+        self.filt = Some(filt_);
         true
     }
 
@@ -122,15 +141,28 @@ impl Plugin for AseExample {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        let mut samples = buffer.as_slice();
+        
+       
         for channel_samples in buffer.iter_samples() {
             // Smoothing is optionally built into the parameters themselves
             let gain = self.params.gain.smoothed.next();
+            
 
-            for sample in channel_samples {
-                *sample *= gain;
+            for (channel_id,sample) in channel_samples.into_iter().enumerate() {
+                
+                let gain = self.params.gain.smoothed.next();
+                let delay = self.params.delay.smoothed.next();
+                let filter_type = self.params.filter_type.value();
+                if let Some(filt) = self.filt.as_mut() {
+                    // Call methods on filt without moving it
+                    filt.set_param(comb_filter::FilterParam::Delay, delay);
+                    filt.set_param(comb_filter::FilterParam::Gain, gain);
+                    filt.filterType = filter_type;
+                    filt.process(sample,channel_id);
+                }
             }
         }
-
         ProcessStatus::Normal
     }
 }
