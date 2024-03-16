@@ -1,25 +1,21 @@
-use std::borrow::Borrow;
 
+/// A simple ring buffer implementation with optional fractional indices.
 pub struct RingBuffer<T> {
-    // TODO: fill this in.
     buffer :  Vec<T>,
     read_ptr : usize,
     write_ptr : usize
 }
 
 impl<T: Copy + Default> RingBuffer<T> {
+    /// Create a new RingBuffer with `length` slots and "default" values.
     pub fn new(length: usize) -> Self {
-        // Create a new RingBuffer with `length` slots and "default" values.
-        // Hint: look into `vec!` and the `Default` trait.
-        //todo!();
         RingBuffer::<T>{buffer: vec![T::default(); length],
                         read_ptr: 0,
                         write_ptr: 0  }
     }
-
+    /// Clears internal buffer and resets read and write indices.
     pub fn reset(&mut self) {
         // Clear internal buffer and reset indices.
-        //todo!()
         for value in self.buffer.iter_mut() {
             *value = T::default();
         }
@@ -27,61 +23,51 @@ impl<T: Copy + Default> RingBuffer<T> {
         self.write_ptr = 0;
     }
 
-    // `put` and `peek` write/read without advancing the indices.
+    /// Replaces value at write pointer with given value without advancing write pointer.
     pub fn put(&mut self, value: T) {
-        //todo!()
         self.buffer[self.write_ptr] = value;
     }
-
+    /// Returns value at read pointer without advancing read pointer.
     pub fn peek(&self) -> T {
-        //todo!()
         self.buffer[self.read_ptr]
     }
-
+    /// Get value from buffer at given offset.
     pub fn get(&self, offset: usize) -> T {
-        //todo!()
         let safe_offset = offset % self.buffer.capacity();
         self.buffer.get(safe_offset).copied().unwrap_or_default()
     }
 
-    // `push` and `pop` write/read and advance the indices.
+    /// Overwrites value at write index and advances write index by 1.
     pub fn push(&mut self, value: T) {
-        //todo!()
         self.put(value);
         self.write_ptr = (self.write_ptr + 1) % self.capacity();
     }
-
+    /// Returns value from buffer at read index and advances read index by 1.
     pub fn pop(&mut self) -> T {
-        //todo!()
         let val = self.peek();
         self.read_ptr = (self.read_ptr + 1) % self.capacity();
         val
 
     }
-
+    /// Returns read index.
     pub fn get_read_index(&self) -> usize {
-        //todo!()
         self.read_ptr
     }
-
+    /// Sets read index.
     pub fn set_read_index(&mut self, index: usize) {
-        //todo!()
         self.read_ptr = index % self.capacity();
     }
-
+    /// Returns write index.
     pub fn get_write_index(&self) -> usize {
-        //todo!()
         self.write_ptr
     }
-
+    /// Sets write index.
     pub fn set_write_index(&mut self, index: usize) {
-        //todo!()
         self.write_ptr = index % self.capacity();
     }
-
+    /// Returns number of values currently in the buffer.
     pub fn len(&self) -> usize {
         // Return number of values currently in the buffer.
-        //todo!()
         if self.write_ptr >= self.read_ptr {
             self.write_ptr - self.read_ptr
         } else {
@@ -89,15 +75,14 @@ impl<T: Copy + Default> RingBuffer<T> {
             self.capacity() - (self.read_ptr - self.write_ptr)
         }
     }
-
+    /// Returns the max number of values in the buffer.
     pub fn capacity(&self) -> usize {
         // Return the length of the internal buffer.
-        //todo!()
         self.buffer.len()
     }
 }
 impl RingBuffer<f32>{
-    // returns a value at a a non-integer offset for fractional delays
+    /// Returns a value at a a non-integer offset for fractional delays.
     pub fn get_frac(&self, offset: f32)->f32{
         if offset == 0.0{
             self.get(0);
@@ -108,8 +93,8 @@ impl RingBuffer<f32>{
         let frac = offset.fract();
         floor_samp * (1.0 - frac) + ceil_samp * frac
     }
-    // meant to be used similarly to pop, simply put in a offset and it will calculate the 
-    // read pointer's position based on the write pointer
+    /// Meant to be used similarly to pop, simply put in a offset and it will calculate the 
+    /// read pointer's position based on the write pointer.
     pub fn pop_frac(& self, offset: f32)->f32{
         if offset == 0.0{
             self.get(self.write_ptr);
@@ -236,7 +221,7 @@ mod tests {
         println!("Test 5 passed!");
     }
     #[test]
-    fn frac_test(){
+    fn get_frac_test(){
         let mut buffer = RingBuffer::<f32>::new(5);
         buffer.push(0.0);
         buffer.push(1.0);

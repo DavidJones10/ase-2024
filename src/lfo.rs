@@ -14,7 +14,7 @@ macro_rules! assert_close {
         );
     }};
 }
-
+/// A simple wavetable LFO generator and playback object
 pub struct LFO{
     frequency: f32,
     amplitude: f32,
@@ -23,11 +23,12 @@ pub struct LFO{
     sample_rate: f32,
     phase_offset: f32
 }
+/// Frequency and Amplitude
 pub enum LfoParams{
     Frequency,
     Amplitude,
 }
-
+/// Sine, Tri, Saw, Square
 pub enum WaveType{
     Sine,
     Tri,
@@ -36,7 +37,7 @@ pub enum WaveType{
 }
 
 impl LFO{
-    /// Creates a new 
+    /// Creates a new LFO
     pub fn new(sample_rate_: f32, waveType_: WaveType, frequency_: f32, amplitude_: f32)->Self{
         let buff = RingBuffer::<f32>::new(sample_rate_ as usize);
         let mut lfo = LFO{
@@ -53,11 +54,14 @@ impl LFO{
         lfo
     }
     /// Reads one sample at a time from the wavetable buffer
-    pub fn pop(&mut self) -> f32 {
+    pub fn process(&mut self) -> f32 {
         //dbg!(self.phase_offset);
-        let val = self.buffer.get_frac(self.phase_offset);
-        self.phase_offset += self.frequency ;
-        val * self.amplitude
+        let val = self.buffer.get_frac(self.phase_offset)*self.amplitude;
+        self.phase_offset += self.frequency;
+        if self.phase_offset >= self.buffer.capacity() as f32{
+            self.phase_offset -= self.buffer.capacity() as f32; // keeps the offset from going to infinity lol
+        }
+        val
     }
     /// Gets sample from LFO wavetable at given offset
     pub fn get(&self, phase_offset: f32) -> f32 {
@@ -89,7 +93,9 @@ impl LFO{
         }
     }
     /// Fills internal wavetable buffer with current waveform
-    pub fn fill_waveform(&mut self){
+    /// 
+    /// Will get called when a new wave_type is set or the LFO is reset
+    fn fill_waveform(&mut self){
         let num_samples = self.buffer.capacity();
 
         for i in 0..num_samples {
@@ -131,7 +137,7 @@ mod tests {
             
             let w = 2.0 * PI * 0.1 / 32.0;
             let sine = (i as f32 * w).sin();
-            let popped = lfo.pop();
+            let popped = lfo.process();
             //println!("sine: {}, popped: {}, i: {}", sine, popped, i);
             assert_close!(sine, popped, 0.01);
         }
@@ -141,7 +147,7 @@ mod tests {
             
             let w = 2.0 * PI * 30.0 / 32.0;
             let sine = (i as f32 * w).sin();
-            let popped = lfo.pop();
+            let popped = lfo.process();
             //println!("sine: {}, popped: {}, i: {}", sine, popped, i);
             assert_close!(sine, popped, 0.01);
         }
