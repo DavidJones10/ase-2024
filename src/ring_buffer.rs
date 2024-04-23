@@ -68,6 +68,9 @@ impl<T: Copy + Default> RingBuffer<T> {
             self.head + self.capacity() - self.tail
         }
     }
+    pub fn resize(&mut self, new_size: usize){
+        self.buffer.resize(new_size, T::default());
+    }
 
     pub fn capacity(&self) -> usize {
         // Return the size of the internal buffer.
