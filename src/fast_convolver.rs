@@ -118,13 +118,13 @@ impl FastConvolver {
     }
 
     fn conv_freq_domain(&mut self, input: &[f32], output: &mut [f32], block_size: usize) {
-        assert!(input.len() == block_size);
+        assert!(input.len() <= block_size);
         let mut total_conv = vec![vec![Complex::<f32>::new(0.0, 0.0);self.fft_length.unwrap()];self.baked_ir.as_ref().unwrap().len()];
         let mut complex_input = vec![Complex::<f32>::new(0.0, 0.0); input.len()];
         complex_input.iter_mut().enumerate().for_each(|(i,sample)| 
                     {sample.re = input[i]; sample.im = 0.0}); // might need +self.tail.get(i)
         let mut input_block = vec![Complex::<f32>::new(0.0, 0.0); self.fft_length.unwrap()];
-        input_block[0..block_size].copy_from_slice(&complex_input);
+        input_block[0..input.len()].copy_from_slice(&complex_input);
         self.fft.as_mut().unwrap().process(&mut input_block);
         for chunk_id in 0..self.baked_ir.as_mut().unwrap().len(){
             for idx in 0..input_block.len(){
