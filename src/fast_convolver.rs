@@ -118,13 +118,11 @@ impl FastConvolver {
     }
 
     fn conv_freq_domain(&mut self, input: &[f32], output: &mut [f32], block_size: usize) {
-        assert!(input.len() <= block_size);
+        assert!(input.len() == block_size);
         let mut total_conv = vec![vec![Complex::<f32>::new(0.0, 0.0);self.fft_length.unwrap()];self.baked_ir.as_ref().unwrap().len()];
         let mut complex_input = vec![Complex::<f32>::new(0.0, 0.0); input.len()];
         complex_input.iter_mut().enumerate().for_each(|(i,sample)| 
                     {sample.re = input[i]; sample.im = 0.0}); // might need +self.tail.get(i)
-        //self.tail.set_write_index(0);
-        //self.tail.set_read_index(0);
         let mut input_block = vec![Complex::<f32>::new(0.0, 0.0); self.fft_length.unwrap()];
         input_block[0..block_size].copy_from_slice(&complex_input);
         self.fft.as_mut().unwrap().process(&mut input_block);
@@ -132,14 +130,16 @@ impl FastConvolver {
             for idx in 0..input_block.len(){
                 total_conv[chunk_id][idx] = input_block[idx] * self.baked_ir.as_mut().unwrap()[chunk_id][idx] / self.fft_length.unwrap() as f32; // maybe divide by fft_size
             }
-
             self.ifft.as_mut().unwrap().process(&mut total_conv[chunk_id]);
             for i in 0..block_size{
-                let value = total_conv[chunk_id][i].re + self.tail.pop();
+                let popped = self.tail.pop();
+                let mut push_val = 0.0;
                 if chunk_id < 1{
-                    output[i] = value;
+                    output[i] = total_conv[chunk_id][i].re + popped;
+                }else{
+                    push_val = total_conv[chunk_id][i].re + total_conv[chunk_id-1][i+block_size].re + popped;
                 }
-                self.tail.push(value);
+                self.tail.push(push_val)
             }
         }
     }
@@ -278,7 +278,7 @@ mod tests {
         println!("{:.2?}: time elapsed",elapsed);
         for i in 0..output.len(){
             if i > 3 && i < ir.len()+3{
-                println!("i: {}, output: {}, ir: {}", i,output[i],ir[i-3]);
+                //println!("i: {}, output: {}, ir: {}", i,output[i],ir[i-3]);
                 assert!(output[i].abs()-ir[i-3].abs() < 0.001);
             }
         }
@@ -303,12 +303,17 @@ mod tests {
             let input_chunks = input.chunks(block_size);
             let mut output_chunks = output[0..input.len()].chunks_mut(block_size);
             for (in_chunk,out_chunk) in zip(input_chunks, output_chunks){
-                conv.process(in_chunk, out_chunk);
+                println!("ChunkLen {}", in_chunk.len());
+                if in_chunk.len() < block_size{
+                    
+                }else{
+                    conv.process(in_chunk, out_chunk);
+                }
             }
             conv.flush(&mut output[input.len()..]);
                 for i in 0..output.len(){
-                    println!("output: {}, input: {}, count: {}",output[i],input[i],i);
                     if i > 3 && i < input.len()+3{
+                       // println!("output: {}, input: {}, count: {}",output[i],input[i-3],i);
                         assert!(output[i].abs()-input[i-3].abs() < 0.001);
                     }
                 }
