@@ -7,7 +7,7 @@ use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use rustfft::{num_complex::{Complex, Complex32}, num_traits::PrimInt, Fft, FftPlanner};
 
 
-struct FastConvolver {
+pub struct FastConvolver {
     ir: Vec<f32>,
     tail: RingBuffer<f32>,
     conv_mode: ConvolutionMode,
@@ -122,7 +122,7 @@ impl FastConvolver {
         let mut total_conv = vec![vec![Complex::<f32>::new(0.0, 0.0);self.fft_length.unwrap()];self.baked_ir.as_ref().unwrap().len()];
         let mut complex_input = vec![Complex::<f32>::new(0.0, 0.0); input.len()];
         complex_input.iter_mut().enumerate().for_each(|(i,sample)| 
-                    {sample.re = input[i]; sample.im = 0.0}); // might need +self.tail.get(i)
+                    {sample.re = input[i]; sample.im = 0.0}); 
         let mut input_block = vec![Complex::<f32>::new(0.0, 0.0); self.fft_length.unwrap()];
         input_block[0..input.len()].copy_from_slice(&complex_input);
         self.fft.as_mut().unwrap().process(&mut input_block);
@@ -295,7 +295,6 @@ mod tests {
         let block_sizes = [1,13, 1023, 2048,30,17, 5000, 1897];
         
         for &block_size in block_sizes.iter(){
-            println!("block_Sizee: {}", block_size);
             let mut conv = FastConvolver::new(&ir, ConvolutionMode::FrequencyDomain { block_size });
             let mut output: Vec<f32> = vec![0.0;conv.get_output_size(input.len())];
             let new_output =  vec![0.0;conv.get_output_size(input.len())];
@@ -303,12 +302,8 @@ mod tests {
             let input_chunks = input.chunks(block_size);
             let mut output_chunks = output[0..input.len()].chunks_mut(block_size);
             for (in_chunk,out_chunk) in zip(input_chunks, output_chunks){
-                println!("ChunkLen {}", in_chunk.len());
-                if in_chunk.len() < block_size{
-                    
-                }else{
-                    conv.process(in_chunk, out_chunk);
-                }
+                //println!("ChunkLen {}", in_chunk.len());
+                conv.process(in_chunk, out_chunk);
             }
             conv.flush(&mut output[input.len()..]);
                 for i in 0..output.len(){
